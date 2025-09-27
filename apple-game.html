@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catch the Apple Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #f0f8ff;
+      font-family: Arial, sans-serif;
+      user-select: none;
+    }
+
+    #gameCanvas {
+      background: #a3d9ff;
+      display: block;
+      margin: 0 auto;
+      border: 2px solid #000;
+    }
+
+    #score {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    #touch-left, #touch-right {
+      position: fixed;
+      top: 0;
+      width: 50%;
+      height: 100%;
+      z-index: 10;
+    }
+
+    #touch-left {
+      left: 0;
+    }
+
+    #touch-right {
+      right: 0;
+    }
+  </style>
+</head>
+<body>
+  <div id="score">Score: 0 | High Score: 0</div>
+  <canvas id="gameCanvas" width="400" height="600"></canvas>
+  <div id="touch-left"></div>
+  <div id="touch-right"></div>
+
+  <!-- 🔊 Audio elements -->
+  <audio id="catchSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_bf3bfa432a.mp3?filename=collectcoin-6075.mp3" preload="auto"></audio>
+  <audio id="failSound" src="https://cdn.pixabay.com/download/audio/2022/03/15/audio_a84e3dfc6a.mp3?filename=negative_beeps-6008.mp3" preload="auto"></audio>
+
+  <script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    const catchSound = document.getElementById("catchSound");
+    const failSound = document.getElementById("failSound");
+
+    const basket = { x: 170, y: 550, width: 60, height: 20 };
+    const appleCount = 3;
+    const apples = [];
+
+    let score = 0;
+    let highScore = localStorage.getItem("highScore") || 0;
+    let rightPressed = false;
+    let leftPressed = false;
+    let gameOver = false;
+
+    function createApple() {
+      return {
+        x: Math.random() * (canvas.width - 20),
+        y: 0,
+        size: 20,
+        speed: 2 + Math.random() * 2
+      };
+    }
+
+    for (let i = 0; i < appleCount; i++) {
+      apples.push(createApple());
+    }
+
+    document.addEventListener("keydown", keyDownHandler);
+    document.addEventListener("keyup", keyUpHandler);
+    document.getElementById("touch-left").addEventListener("touchstart", () => leftPressed = true);
+    document.getElementById("touch-left").addEventListener("touchend", () => leftPressed = false);
+    document.getElementById("touch-right").addEventListener("touchstart", () => rightPressed = true);
+    document.getElementById("touch-right").addEventListener("touchend", () => rightPressed = false);
+
+    function keyDownHandler(e) {
+      if (e.key === "Right" || e.key === "ArrowRight") rightPressed = true;
+      else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = true;
+      else if (e.key === "Enter" && gameOver) restartGame();
+    }
+
+    function keyUpHandler(e) {
+      if (e.key === "Right" || e.key === "ArrowRight") rightPressed = false;
+      else if (e.key === "Left" || e.key === "ArrowLeft") leftPressed = false;
+    }
+
+    function drawBasket() {
+      ctx.fillStyle = "#654321";
+      ctx.fillRect(basket.x, basket.y, basket.width, basket.height);
+    }
+
+    function drawApples() {
+      apples.forEach(apple => {
+        ctx.beginPath();
+        ctx.arc(apple.x, apple.y, apple.size, 0, Math.PI * 2);
+        ctx.fillStyle = "red";
+        ctx.fill();
+        ctx.closePath();
+      });
+    }
+
+    function moveBasket() {
+      if (rightPressed && basket.x < canvas.width - basket.width) basket.x += 5;
+      else if (leftPressed && basket.x > 0) basket.x -= 5;
+    }
+
+    function detectCatch(apple, index) {
+      if (
+        apple.y + apple.size > basket.y &&
+        apple.x > basket.x &&
+        apple.x < basket.x + basket.width
+      ) {
+        score++;
+        updateScore();
+        catchSound.currentTime = 0;
+        catchSound.play();
+        if (navigator.vibrate) navigator.vibrate(50);
+        apples[index] = createApple();
+      } else if (apple.y > canvas.height) {
+        endGame();
+      }
+    }
+
+    function updateScore() {
+      document.getElementById("score").innerText = `Score: ${score} | High Score: ${highScore}`;
+    }
+
+    function endGame() {
+      gameOver = true;
+      failSound.play();
+      if (score > highScore) {
+        highScore = score;
+        localStorage.setItem("highScore", highScore);
+      }
+      updateScore();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.6)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.fillStyle = "white";
+      ctx.font = "30px Arial";
+      ctx.fillText("Game Over", 110, 280);
+      ctx.font = "20px Arial";
+      ctx.fillText("Press ENTER to Restart", 90, 320);
+    }
+
+    function restartGame() {
+      score = 0;
+      apples.length = 0;
+      for (let i = 0; i < appleCount; i++) {
+        apples.push(createApple());
+      }
+      gameOver = false;
+      updateScore();
+      draw();
+    }
+
+    function draw() {
+      if (gameOver) return;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawBasket();
+      drawApples();
+      moveBasket();
+
+      apples.forEach((apple, index) => {
+        apple.y += apple.speed;
+        detectCatch(apple, index);
+      });
+
+      requestAnimationFrame(draw);
+    }
+
+    updateScore();
+    draw();
+  </script>
+</body>
+</html>
